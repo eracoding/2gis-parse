@@ -59,25 +59,25 @@ def req_to2gis(driver, url, actions):
     subcat[0].click()
     all_data[name][subrub] = {}
 
-    time.sleep(5)
-    all_data = scrab_data(driver, actions, all_data, name, subrub)
-    print(all_data)
+    for i in range(2):
+        time.sleep(random.randint(2, 4))
+        all_data = scrab_data(driver, actions, all_data, name, subrub)
+        print(all_data)
+        try:
+            checkNextPage = driver.find_element(By.XPATH, "//div[@class='_7q94tr']/*[name()='svg' and @style='transform: rotate(-90deg);']")
+            break
+        except Exception as ex:
+            pass
+
+        actions.send_keys(Keys.PAGE_DOWN)
+        actions.perform()
+        time.sleep(random.randint(2, 4))
+        nextPage = driver.find_element(By.XPATH, "//*[name()='svg' and @style='transform: rotate(-90deg);']")
+        driver.implicitly_wait(random.randint(2, 7))
+        nextPage.click()
+        time.sleep(random.randint(2, 4))
+
     csv_write(all_data)
-    # while True:
-    #
-    #     try:
-    #         checkNextPage = driver.find_element(By.XPATH, "//div[@class='_7q94tr']/*[name()='svg' and @style='transform: rotate(-90deg);']")
-    #         print(checkNextPage)
-    #         break
-    #     except Exception as ex:
-    #         pass
-    #
-    #     ActionChains(driver).send_keys(Keys.PAGE_DOWN).perform()
-    #     driver.implicitly_wait(random.randint(2, 7))
-    #     nextPage = driver.find_element(By.XPATH, "//*[name()='svg' and @style='transform: rotate(-90deg);']")
-    #     driver.implicitly_wait(random.randint(2, 7))
-    #     nextPage.click()
-    #     time.sleep(random.randint(5, 10))
 
 
 def check(driver, url):
@@ -116,7 +116,7 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
         company.click()
         time.sleep(random.randint(2, 4))
         name, description, address, branches, address2, phonenumbers, webpages, emails = '', '', '', 0, '', '', '', ''
-        tw, tg, vk, ok, yt, wa, pint = '', '', '', '', '', '', ''
+        tw, tg, vk, ok, yt, wa, pint, counter = '', '', '', '', '', '', '', 0
         try:
             name = driver.find_element(By.XPATH,
                                        "//div[@class='_19sjw5q']/div/div/div[@class='_1dcp9fc']")
@@ -124,6 +124,9 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
         except Exception as ex:
             pass
         finally:
+            if name in all_data[rub][sub_rub]:
+                counter += 1
+                name = name + ' ' + str(counter)
             all_data[rub][sub_rub][name] = {}
 
         try:
