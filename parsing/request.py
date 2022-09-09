@@ -119,8 +119,8 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
         tw, tg, vk, ok, yt, wa, pint = '', '', '', '', '', '', ''
         try:
             name = driver.find_element(By.XPATH,
-                                       "//div[@style='color: rgb(255, 255, 255);']/div/div/div[@class='_1dcp9fc']")
-            name = name.text.strip()
+                                       "//div[@class='_19sjw5q']/div/div/div[@class='_1dcp9fc']")
+            name = name.text
         except Exception as ex:
             pass
         finally:
@@ -137,7 +137,7 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
         except Exception as ex:
             pass
         finally:
-            all_data[rub][sub_rub][name]['description'] = description.strip()
+            all_data[rub][sub_rub][name]['description'] = description
 
         driver.implicitly_wait(random.randint(2, 7))
 
@@ -160,19 +160,19 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
                         break
                 branches = address[pivot - cur:]
                 address = address[:pivot - cur] + ' ' + address2
-                all_data[rub][sub_rub][name]['address'] = address.strip()
-                all_data[rub][sub_rub][name]['branches'] = branches.strip()
+                all_data[rub][sub_rub][name]['address'] = address
+                all_data[rub][sub_rub][name]['branches'] = branches
             else:
-                all_data[rub][sub_rub][name]['address'] = (address + address2).strip()
+                all_data[rub][sub_rub][name]['address'] = (address + address2)
                 all_data[rub][sub_rub][name]['branches'] = '-'
-        time.sleep(random.randint(2, 7))
+        time.sleep(random.randint(2, 4))
         try:
             el = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//div[@class='_49kxlr']/div[@class='_b0ke8']"))
             )
             el.click()
             phonenumbers = driver.find_elements(By.XPATH, "//div[@class='_49kxlr']/div[@class='_b0ke8']")
-            phonenumbers = ' '.join(p.text for p in phonenumbers).strip()
+            phonenumbers = ' '.join(p.text for p in phonenumbers)
 
             actions.send_keys(Keys.PAGE_DOWN)
             actions.perform()
@@ -183,14 +183,14 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
 
         try:
             webpages = driver.find_elements(By.XPATH, "//div[@class='_49kxlr']/span/div/a[@target='_blank']")
-            webpages = ' '.join(w.text for w in webpages).strip()
+            webpages = ' '.join(w.text for w in webpages)
         except Exception as ex:
             pass
         finally:
             all_data[rub][sub_rub][name]['website'] = webpages
         try:
             emails = driver.find_elements(By.XPATH, "//div[@class='_49kxlr']/div/a[contains(@href, 'mailto')]")
-            emails = ' '.join((e.text for e in emails)).strip()
+            emails = ' '.join((e.text for e in emails))
         except Exception as ex:
             pass
         finally:
@@ -251,9 +251,10 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
             pass
         finally:
             all_data[rub][sub_rub][name]['pint'] = pint
+        all_data[rub][sub_rub][name]['cur_url'] = driver.current_url
 
         driver.back()
-        time.sleep(4)
+        time.sleep(random.randint(2, 4))
     return all_data
 
 
@@ -270,13 +271,17 @@ def csv_write(data):
         for k, v in data.items():
             for k1, v1 in v.items():
                 for k2, v2 in v1.items():
-                    writer.writerow(
-                        {"Наименование организации": k2, "Город": "Москва", "Подрубрика 1": k, "Подрубрика 2": k1,
-                         "Описание": v2['description'], "Кол-во филиалов": v2['branches'], "Адрес": v2['address'],
-                         "Телефон": v2['phone'], "Сайт": v2['website'], "Email": v2['email'], "Youtube": v2['yt'],
-                         "Whatsapp": v2['wa'], "Вконтакте": v2['vk'], "Telegram": v2['tg'],
-                         "Twitter": v2['tw'], "Одноклассники": v2['ok'], "Pinterest": v2['pint'],
-                         "Ссылка 2GIS на организацию": '-'})
+                    writer.writerow({"Наименование организации": k2.replace('\n', ' '), "Город": "Москва",
+                                     "Подрубрика 1": k.replace('\n', ' '), "Подрубрика 2": k1.replace('\n', ' '),
+                                     "Описание": v2['description'].replace('\n', ' '),
+                                     "Кол-во филиалов": v2['branches'].replace('\n', ' '),
+                                     "Адрес": v2['address'].replace('\n', ' '),
+                                     "Телефон": v2['phone'].replace('\n', ' '),
+                                     "Сайт": v2['website'].replace('\n', ' '), "Email": v2['email'].replace('\n', ' '),
+                                     "Youtube": v2['yt'], "Whatsapp": v2['wa'], "Вконтакте": v2['vk'],
+                                     "Telegram": v2['tg'],
+                                     "Twitter": v2['tw'], "Одноклассники": v2['ok'], "Pinterest": v2['pint'],
+                                     "Ссылка 2GIS на организацию": v2['cur_url']})
 
 
 def main():
