@@ -2,6 +2,7 @@ import csv
 import time
 import random
 import os
+import pandas as pd
 
 from selenium.common import WebDriverException
 from selenium.webdriver import Keys
@@ -29,7 +30,6 @@ def driver_initialize():
 def req_to2gis(driver, url, actions):
     driver.get(url=url)
     time.sleep(15)
-
     all_data = {}
 
     # close cookies
@@ -44,7 +44,12 @@ def req_to2gis(driver, url, actions):
     all_rubrics = driver.find_elements(By.XPATH, "//div[@style='width: 100%; height: 100%; border-radius: 0px;']")
     # for i in range(len(all_rubrics) - 1):
     #     print(all_rubrics[i].find_element(By.XPATH, ".//ancestor::a[@data-h='true']").get_attribute('title'))
+
+    # rubrics url link
+    rubrics_url = driver.current_url
+
     all_rubrics[0].click()
+
     time.sleep(random.randint(2, 4))
     name = all_rubrics[0].find_element(By.XPATH, ".//ancestor::a[@data-h='true']").get_attribute('title')
     all_data[name] = {}
@@ -54,17 +59,30 @@ def req_to2gis(driver, url, actions):
     time.sleep(random.randint(2, 7))
 
     # Subcategory list
-    subcat = driver.find_elements(By.XPATH, "//div[@tabindex='-1' and @data-scroll='true']/div[@class='_15gu4wr' and @style='width: 352px;']/div/div[@class='_13w22bi']")
-    subrub = subcat[0].text
-    subcat[0].click()
+    subcat = driver.find_elements(By.XPATH,
+                                  "//div[@tabindex='-1' and @data-scroll='true']/div[@class='_15gu4wr' and @style='width: 352px;']/div/div[@class='_13w22bi']")
+
+    # subrubrics url link
+    subrubrics_url = driver.current_url
+
+    subrub = subcat[0].text.split('\n')[0]
     all_data[name][subrub] = {}
 
+    subcat[0].click()
+    # driver.get(subrubrics_url)
+    # time.sleep(random.randint(2, 7))
+    #
+    # driver.get(rubrics_url)
+    # time.sleep(15)
     for i in range(2):
         time.sleep(random.randint(2, 4))
         all_data = scrab_data(driver, actions, all_data, name, subrub)
+        ogrn_data(driver, actions, all_data, name, subrub)
         print(all_data)
+        csv_write(all_data)
         try:
-            checkNextPage = driver.find_element(By.XPATH, "//div[@class='_7q94tr']/*[name()='svg' and @style='transform: rotate(-90deg);']")
+            checkNextPage = driver.find_element(By.XPATH,
+                                                "//div[@class='_7q94tr']/*[name()='svg' and @style='transform: rotate(-90deg);']")
             break
         except Exception as ex:
             pass
@@ -77,36 +95,21 @@ def req_to2gis(driver, url, actions):
         nextPage.click()
         time.sleep(random.randint(2, 4))
 
-    csv_write(all_data)
 
-
-def check(driver, url):
-    driver.get(url=url)
-    time.sleep(5)
-    scrabbed_data = {}
-
-    companies = driver.find_elements(By.XPATH, "//div[@class='_uf1t8l' and @style='width: 56px;']")
-    driver.implicitly_wait(random.randint(2, 7))
-    # print(len(companies))
-    for j in range(len(companies)):
-        companies[j].click()
-        driver.implicitly_wait(random.randint(2, 7))
-        svgScroll = driver.find_elements(By.XPATH, "//div[@data-rack='true']/div[@data-divider='true']")
-        for i in range(len(svgScroll)):
-            try:
-                svgScroll[i].click()
-                time.sleep(random.randint(1, 4))
-                # companies[i+j].click()
-            except WebDriverException:
-                pass
-            finally:
-                print(svgScroll[i].text)
-        # print("END")
-        # driver.implicitly_wait(random.randint(2, 7))
-        # driver.find_element(By.XPATH, "//div[@style='margin-bottom: 8px; pointer-events: all;']").click()
-        # driver.implicitly_wait(random.randint(2, 7))
-        # driver.execute_script("window.scrollTo(0, 50)")
-        # driver.implicitly_wait(random.randint(2, 7))
+def ogrn_data(driver, actions, all_data, rub, sub_rub):
+    adverts = driver.find_elements(By.XPATH, "//div[@class='_awwm2v']/div[@class='_106bqvr']")
+    for advert in adverts:
+        ogrn, name = '-', '-'
+        try:
+            name = advert.find_element(By.XPATH, ".//div[@class='_1ltdkuc']/span").text
+            ogrn = advert.find_element(By.XPATH, ".//div[@class='_1sih4tys']").get_attribute('title')
+        except Exception as ex:
+            pass
+        finally:
+            if 'ОГРН' in ogrn:
+                ogrn = ogrn[ogrn.find('ОГРН'):]
+            if name in all_data:
+                all_data[rub][sub_rub][name]['ОГРН'] = ogrn
 
 
 def scrab_data(driver, actions, all_data, rub, sub_rub):
@@ -115,19 +118,37 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
     for company in companies:
         company.click()
         time.sleep(random.randint(2, 4))
-        name, description, address, branches, address2, phonenumbers, webpages, emails = '', '', '', 0, '', '', '', ''
-        tw, tg, vk, ok, yt, wa, pint, counter = '', '', '', '', '', '', '', 0
+        name, description, address, branches, address2, phonenumbers, webpages, emails = '-', '-', '-', '-', '', '-', '-', '-'
+        tag_name, sprav = '-', ''
+        tw, tg, vk, ok, yt, wa, pint, counter = '-', '-', '-', '-', '-', '-', '-', 0
+
         try:
             name = driver.find_element(By.XPATH,
                                        "//div[@class='_19sjw5q']/div/div/div[@class='_1dcp9fc']")
-            name = name.text
+            name, tag_name = name.text.split('\n')
         except Exception as ex:
             pass
         finally:
             if name in all_data[rub][sub_rub]:
-                counter += 1
-                name = name + ' ' + str(counter)
+                actions.send_keys(Keys.PAGE_DOWN)
+                actions.perform()
+                time.sleep(2)
+                try:
+                    el = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, "//div[@class='_49kxlr']/div[@class='_b0ke8']"))
+                    )
+                    el.click()
+                    phonenumbers = driver.find_elements(By.XPATH, "//div[@class='_49kxlr']/div[@class='_b0ke8']")
+                    phonenumbers = ', '.join(p.text for p in phonenumbers)
+                except Exception as ex:
+                    pass
+                finally:
+                    if phonenumbers != all_data[rub][sub_rub][name]['phone']:
+                        all_data[rub][sub_rub][name]['phone'] += phonenumbers
+                    driver.back()
+                    continue
             all_data[rub][sub_rub][name] = {}
+            all_data[rub][sub_rub][name]['tag_name'] = tag_name
 
         try:
             el = WebDriverWait(driver, 10).until(
@@ -145,37 +166,32 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
         driver.implicitly_wait(random.randint(2, 7))
 
         try:
-            el = WebDriverWait(driver, 10).until(
+            address = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//div[@class='_13eh3hvq']/div/div/span[@class='_14quei']"))
-            )
-            address = el.text
+            ).text
+
+            if 'этаж' in address:
+                pivot = address.find('этаж')
+                address = address[:pivot - 2] + ', ' + address[pivot - 2:]
+
+            branches = driver.find_element(By.XPATH, "//div[@class='_13eh3hvq']/div/div/span[@class='_14quei']/span/a[@class='_1rehek']").text
             address2 = driver.find_element(By.XPATH, "//div[@class='_13eh3hvq']/div/div/div[@class='_1p8iqzw']").text
         except Exception as ex:
             pass
         finally:
-            if 'филиал' in address:
-                pivot = address.find('филиал')
-                cur = 1
-                for i in range(2, pivot):
-                    if 48 <= ord(address[pivot - i]) <= 56:
-                        cur += 1
-                    else:
-                        break
-                branches = address[pivot - cur:]
-                address = address[:pivot - cur] + ' ' + address2
-                all_data[rub][sub_rub][name]['address'] = address
-                all_data[rub][sub_rub][name]['branches'] = branches
-            else:
-                all_data[rub][sub_rub][name]['address'] = (address + address2)
-                all_data[rub][sub_rub][name]['branches'] = '-'
-        time.sleep(random.randint(2, 4))
+            if branches in address:
+                address = address[:len(address) - len(branches)]
+            all_data[rub][sub_rub][name]['address'] = address + ', ' + address2
+            all_data[rub][sub_rub][name]['branches'] = branches
+
+        time.sleep(2)
         try:
             el = WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.XPATH, "//div[@class='_49kxlr']/div[@class='_b0ke8']"))
             )
             el.click()
             phonenumbers = driver.find_elements(By.XPATH, "//div[@class='_49kxlr']/div[@class='_b0ke8']")
-            phonenumbers = ' '.join(p.text for p in phonenumbers)
+            phonenumbers = ', '.join(p.text for p in phonenumbers)
 
             actions.send_keys(Keys.PAGE_DOWN)
             actions.perform()
@@ -186,14 +202,14 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
 
         try:
             webpages = driver.find_elements(By.XPATH, "//div[@class='_49kxlr']/span/div/a[@target='_blank']")
-            webpages = ' '.join(w.text for w in webpages)
+            webpages = ', '.join(w.text for w in webpages)
         except Exception as ex:
             pass
         finally:
             all_data[rub][sub_rub][name]['website'] = webpages
         try:
             emails = driver.find_elements(By.XPATH, "//div[@class='_49kxlr']/div/a[contains(@href, 'mailto')]")
-            emails = ' '.join((e.text for e in emails))
+            emails = ', '.join((e.text for e in emails))
         except Exception as ex:
             pass
         finally:
@@ -256,43 +272,134 @@ def scrab_data(driver, actions, all_data, rub, sub_rub):
             all_data[rub][sub_rub][name]['pint'] = pint
         all_data[rub][sub_rub][name]['cur_url'] = driver.current_url
 
+        try:
+            # infobar
+            infobar = driver.find_element(By.XPATH, "//div[@class='_jro6t0']/div/div/a[@class='_2lcm958']")
+            infobar.click()
+
+            actions.send_keys(Keys.PAGE_DOWN)
+            actions.perform()
+
+            time.sleep(2)
+            sprav = driver.find_element(By.XPATH,
+                                        "//div[@class='_172gbf8' and @data-divider='true']/div/div/span[@class='_14quei']/span/a[@class='_1rehek']")
+            sprav = sprav.find_element(By.XPATH, ".//ancestor::span[@class='_14quei']")
+            sprav = sprav.find_elements(By.XPATH, ".//span[@class='_er2xx9']")
+            sprav = ', '.join(s.text for s in sprav)
+        except Exception as ex:
+            pass
+        finally:
+            all_data[rub][sub_rub][name]['sprav'] = sprav
+            print(sprav)
+
         driver.back()
+        driver.back()
+        time.sleep(1)
+
+        company.click()
+        driver.back()
+        time.sleep(1)
+        actions.send_keys(Keys.PAGE_DOWN)
+        actions.perform()
+
         time.sleep(random.randint(2, 4))
+
     return all_data
 
 
 def csv_write(data):
-    header = ["Наименование организации", "Город", "Подрубрика 1", "Подрубрика 2", "Описание", "Кол-во филиалов",
+    header = ["Рубрика", "Наименование организации", "Город", "Подрубрика 1", "Подрубрика 2", "Описание", "Кол-во филиалов",
               "Адрес", "Телефон",
-              "Сайт", "Email", "Youtube", "Whatsapp", "Вконтакте", "Telegram", "Twitter", "Одноклассники", "Pinterest",
-              "Ссылка 2GIS на организацию"]
+              "Сайт", "Email", "Instagram", "Facebook", "Youtube", "Whatsapp", "Вконтакте", "Telegram", "Twitter", "Одноклассники", "Pinterest",
+              "Справочник", "Ссылка 2GIS на организацию", "ОГРН"]
 
-    with open('test.csv', 'w', encoding='utf16', newline='') as f:
+    with open('test2.csv', 'a', encoding='utf16', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=header, delimiter='|')
 
-        writer.writeheader()
+        print('csv_write')
         for k, v in data.items():
             for k1, v1 in v.items():
                 for k2, v2 in v1.items():
-                    writer.writerow({"Наименование организации": k2.replace('\n', ' '), "Город": "Москва",
-                                     "Подрубрика 1": k.replace('\n', ' '), "Подрубрика 2": k1.replace('\n', ' '),
+                    writer.writerow({"Рубрика": k.replace('\n', ' '),
+                                     "Наименование организации": k2.replace('\n', ' '),
+                                     "Город": "Москва",
+                                     "Подрубрика 1": k1.replace('\n', ' '),
+                                     "Подрубрика 2": v2['tag_name'].replace('\n', ' '),
                                      "Описание": v2['description'].replace('\n', ' '),
                                      "Кол-во филиалов": v2['branches'].replace('\n', ' '),
                                      "Адрес": v2['address'].replace('\n', ' '),
                                      "Телефон": v2['phone'].replace('\n', ' '),
-                                     "Сайт": v2['website'].replace('\n', ' '), "Email": v2['email'].replace('\n', ' '),
-                                     "Youtube": v2['yt'], "Whatsapp": v2['wa'], "Вконтакте": v2['vk'],
+                                     "Сайт": v2['website'].replace('\n', ' '),
+                                     "Email": v2['email'].replace('\n', ' '),
+                                     "Instagram": '-', "Facebook": '-',
+                                     "Youtube": v2['yt'],
+                                     "Whatsapp": v2['wa'],
+                                     "Вконтакте": v2['vk'],
                                      "Telegram": v2['tg'],
-                                     "Twitter": v2['tw'], "Одноклассники": v2['ok'], "Pinterest": v2['pint'],
-                                     "Ссылка 2GIS на организацию": v2['cur_url']})
+                                     "Twitter": v2['tw'],
+                                     "Одноклассники": v2['ok'],
+                                     "Pinterest": v2['pint'],
+                                     "Справочник": v2['sprav'],
+                                     "Ссылка 2GIS на организацию": v2['cur_url'],
+                                     "ОГРН": '-'})
+
+
+def create_csv():
+    header = ["Рубрика", "Наименование организации", "Город", "Подрубрика 1", "Подрубрика 2", "Описание",
+              "Кол-во филиалов",
+              "Адрес", "Телефон",
+              "Сайт", "Email", "Instagram", "Facebook", "Youtube", "Whatsapp", "Вконтакте", "Telegram", "Twitter",
+              "Одноклассники", "Pinterest",
+              "Справочник", "Ссылка 2GIS на организацию", "ОГРН"]
+
+    with open('test2.csv', 'w', encoding='utf16', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=header, delimiter='|')
+
+        writer.writeheader()
+
+
+def make_hyper_urls(driver, df, string):
+    for i in df[string].keys():
+        if df[string][i] != '-':
+            driver.get(url=df[string][i])
+            newurl = driver.current_url
+            if len(newurl) <= 255:
+                df[string][i] = '=HYPERLINK("' + newurl + '")'
+            else:
+                df[string][i] = newurl
+
+
+def hyper_csv(driver):
+    df = pd.read_csv(".\\test2.csv", sep='|', encoding='utf-16')
+    df['Ссылка 2GIS на организацию'] = '=HYPERLINK("' + df["Ссылка 2GIS на организацию"] + '")'
+
+    for k in df['Сайт'].keys():
+        if len(df['Сайт'][k].split(', ')) < 2 and df['Сайт'][k] != '-':
+            df['Сайт'][k] = '=HYPERLINK("' + df['Сайт'][k] + '")'
+
+    make_hyper_urls(driver, df, 'Instagram')
+    make_hyper_urls(driver, df, 'Facebook')
+    make_hyper_urls(driver, df, 'Youtube')
+    make_hyper_urls(driver, df, 'Whatsapp')
+    make_hyper_urls(driver, df, 'Вконтакте')
+    make_hyper_urls(driver, df, 'Telegram')
+    make_hyper_urls(driver, df, 'Twitter')
+    make_hyper_urls(driver, df, 'Одноклассники')
+    make_hyper_urls(driver, df, 'Pinterest')
+
+    df.to_excel(".\\test2.xlsx", index=False)
 
 
 def main():
     url = 'https://2gis.ru/moscow'
     driver = driver_initialize()
     actions = ActionChains(driver)
+    create_csv()
+
     try:
         req_to2gis(driver, url, actions)
+        hyper_csv(driver)
+        pass
     except Exception as ex:
         pass
     finally:
